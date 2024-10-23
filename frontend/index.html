@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Transcription</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #2c2c2c;
+            color: white;
+            font-family: "Roboto Mono", monospace;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 30px;
+        }
+
+        button {
+            background-color: #2980b9; /* Button color */
+            border: 2px solid #3498db; /* Border color */
+            border-radius: 5px; /* Rounded corners */
+            color: white; /* Text color */
+            cursor: pointer; /* Pointer cursor */
+            font-size: 16px; /* Font size */
+            margin: 10px; /* Margin around buttons */
+            padding: 10px 24px; /* Padding inside buttons */
+            transition: background-color 0.3s, border-color 0.3s; /* Smooth transition for hover effect */
+            z-index: 2;
+        }
+
+        button:hover {
+            background-color: #3498db; /* Lighter button color on hover */
+            border-color: #2980b9; /* Darker border color on hover */
+        }
+
+        button:disabled {
+            background-color: #7f8c8d; /* Gray color for disabled button */
+            border-color: #95a5a6; /* Lighter border for disabled button */
+            cursor: not-allowed; /* Not-allowed cursor for disabled button */
+        }
+
+        #startBtn::before, #stopBtn::before {
+            font-size: 50px;
+            display: block;
+            color: white;
+        }
+
+        #startBtn::before {
+            content: '\25CF'; /* Record icon */
+        }
+
+        #stopBtn::before {
+            content: '\25A0'; /* Stop icon */
+        }
+
+        button:disabled {
+            display: none;
+        }
+
+        #transcriptionText {
+            font-size: 1.5em;
+            margin-top: 20px;
+        }
+
+        /* Ripple animation */
+        .ripple-container {
+            position: absolute;
+            width: 70px;
+            height: 70px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            animation: ripple-animation 1s infinite;
+            z-index: 1;
+        }
+
+        @keyframes ripple-animation {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(2);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Voice Transcription using Whisper</h1>
+
+    <button id="startBtn"></button>
+    <button id="stopBtn" disabled></button>
+
+    <div class="ripple-container" id="ripple" style="display: none;"></div>
+
+    <div style="margin: 0 auto; padding: 25px; text-align: center; max-width: 800px;">
+        <h3>Transcription Result in <span id="language">...</span></h3>
+        <p id="transcriptionText">Waiting for transcription...</p>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/recorderjs/0.1.0/recorder.js" defer></script>
+    <script>
+        let recorder;
+        let audioStream;
+
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const ripple = document.getElementById('ripple');
+
+        // Start recording
+        async function startRecording() {
+            audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const audioContext = new AudioContext();
+            const input = audioContext.createMediaStreamSource(audioStream);
+            recorder = new Recorder(input, { numChannels: 1 });
+            recorder.record();
+            
+            // Show ripple effect
+            ripple.style.display = 'block';
+        }
+
+        // Stop recording and send audio to server
+        function stopRecording() {
+            recorder.stop();
+            recorder.exportWAV(blob => {
+                const formData = new FormData();
+                formData.append('file', blob, 'audio.mp3');
+
+                // Send the MP3 file to the backend
+                fetch('http://127.0.0.1:8000/transcribe-audio/', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('transcriptionText').innerText = data.transcribed_text;
+                    document.getElementById('language').innerText = data.lang;
+                })
+                .catch(err => console.error(err));
+            });
+
+            // Hide ripple effect
+            ripple.style.display = 'none';
+        }
+
+        // Toggle buttons and start/stop recording
+        startBtn.onclick = function() {
+            startRecording();
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+        };
+
+        stopBtn.onclick = function() {
+            stopRecording();
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+        };
+    </script>
+</body>
+</html>
