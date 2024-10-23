@@ -1,6 +1,6 @@
 ## Setup
 
-(I', using windows 😉)
+(I'm, using windows 😉)
 
 ```
 
